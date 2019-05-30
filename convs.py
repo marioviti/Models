@@ -102,7 +102,7 @@ class GFunction(nn.Module):
     def forward(self, x):
         return self.expander(self.pre_forward(x),x)
     
-class Upsample(nn.Module):
+class UpSample(nn.Module):
     """
     Implementing generic upsampling strategy
     Parameters:
