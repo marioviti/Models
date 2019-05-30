@@ -42,7 +42,7 @@ def conv_padding_func(padding, input_shape, kernel_size, dilation, stride):
     if all(isinstance(p, int) for p in padding):
         output_padding = padding
     output_padding = sum([[a] * 2 for a in output_padding], [])
-    return lambda x: F.pad(x, output_padding, 'constant', 0), output_padding
+    return lambda x: F.pad(x, list(reversed(output_padding)), 'constant', 0), output_padding
 
 def coumpute_output_size(input_size, padding, kernel_size, dilatation, stride):
     i = input_size
