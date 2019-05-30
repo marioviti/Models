@@ -154,7 +154,7 @@ class Conv(nn.Module):
         self.stride, self.dilation, self.padding, self.kernel_size = stride, dilation, padding, kernel_size
 
     def forward(self, x):
-        input_shape = list(x.shape)[:3]
+        input_shape = list(x.shape)[2:]
         pad_func, output_padding = conv_padding_func(self.padding, input_shape, self.kernel_size, self.dilation, self.stride)
         return self.layer(pad_func(x))
 
