@@ -110,7 +110,7 @@ class UpSample(nn.Module):
         as a result spatial dimensions of the output will be scaled by up_scale.
     """
     def __init__(self, up_scale=2, mode='3d'):
-        super(Upsample, self).__init__()
+        super(UpSample, self).__init__()
         self.up = nn.Upsample(scale_factor=up_scale, mode='trilinear' if mode =='3d' else 'bilinear')
         
     def forward(self, x):
