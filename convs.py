@@ -249,9 +249,10 @@ class ConvBlock(nn.Module):
         
         # batch normalization
         # bn output_channels * (num_blocks-1)
+        bn_fun = nn.BatchNorm3d if conv_mode=='3d' else nn.BatchNorm2d
         if batch_norm: 
             # instantiate module
-            self.bns = nn.ModuleList([nn.BatchNorm3d(out_channels)] * (num_convs - 1))
+            self.bns = nn.ModuleList([bn_fun(out_channels)] * (num_convs - 1))
         
         # instruction prefetch
         self.pre_forward = self.vanilla_forward
