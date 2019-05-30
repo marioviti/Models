@@ -43,7 +43,7 @@ class ExpandGFunction(nn.Module):
         return pre_forward(x_l,x_g)
 
     
-class GFunction3D(nn.Module):
+class GFunction(nn.Module):
     """
     Implement spatial invaiant feature.
     This Gfunction are invariant to permutation of pixels therefore
@@ -75,10 +75,10 @@ class GFunction3D(nn.Module):
     """
     def __init__(self, in_channels, global_channels, stride=1, groups=1, kernel_size=1, 
                  bias=True, activation=nn.LeakyReLU(inplace=True),
-                 mode='avg', padding='same', merge=True):
+                 mode='avg', padding='same', merge=True, conv_mode='3d'):
         
-        self.conv = Conv3D(in_channels, global_channels, 1, stride=stride,
-                           padding=padding, groups=groups_in, bias=bias)
+        self.conv = Conv(in_channels, global_channels, 1, stride=stride,
+                           padding=padding, groups=groups_in, bias=bias, mode=conv_mode)
         self.act = activation
         self.mean_pool = MeanGPool()
         self.std_pool = StdGPool()
@@ -102,39 +102,41 @@ class GFunction3D(nn.Module):
     def forward(self, x):
         return self.expander(self.pre_forward(x),x)
     
-class Upsample3D(nn.Module):
+class Upsample(nn.Module):
     """
     Implementing generic upsampling strategy
     Parameters:
     up_scale: int
         as a result spatial dimensions of the output will be scaled by up_scale.
     """
-    def __init__(self, up_scale=2):
-        self.up = nn.Upsample(scale_factor=up_scale, mode='trilinear')
+    def __init__(self, up_scale=2, mode='3d'):
+        super(Upsample, self).__init__()
+        self.up = nn.Upsample(scale_factor=up_scale, mode='trilinear' if mode =='3d' else 'bilinear')
         
     def forward(self, x):
         return self.up(x)
     
     
-class UpConv3D(nn.Module):
+class UpConv(nn.Module):
     """
     Implementing generic upsampling strategy
     Parameters:
     up_scale: int
         as a result spatial dimensions of the output will be scaled by up_scale.
     """
-    def __init__(self, in_channels, out_channels, kernel_size=3, dilation=1, groups=1, up_scale=2, bias=True):
-        super(UpSample3D, self).__init__()
+    def __init__(self, in_channels, out_channels, kernel_size=3, dilation=1, groups=1, up_scale=2, bias=True, mode='3d'):
+        super(UpConv, self).__init__()
         padding_in = compute_upconv_input_padding(2,4,up_scale,1,2*up_scale,output_padding=0)
-        self.up = nn.Sequential(nn.ConvTranspose3d(in_channels, in_channels, kernel_size=2*up_scale, dilatation=dilatation,
-                                                   stride=up_scale, padding=padding_in), self.act)
+        conv_type = nn.ConvTranspose3d if mode == '3d' else nn.ConvTranspose2d
+        self.up = nn.Sequential(conv_type(in_channels, in_channels, kernel_size=2*up_scale, dilatation=dilatation,
+                                          stride=up_scale, padding=padding_in), self.act)
             
     def forward(self, x):
         x = self.up(x)
         return x
     
 
-class Conv3D(nn.Module):
+class Conv(nn.Module):
     """
     Wrapping Conv3D with advanced padding options.
     args:
@@ -144,9 +146,10 @@ class Conv3D(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, kernel_size=3, dilation=1, groups=1, bias=True,
-                 stride=1, padding='same'):
-        super(Conv3D, self).__init__()
-        self.layer = nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=0,
+                 stride=1, padding='same',mode='3d'):
+        super(Conv, self).__init__()
+        conv_type = nn.Conv3d if mode =='3d' else nn.Conv2d
+        self.layer = conv_type(in_channels, out_channels, kernel_size, stride=stride, padding=0,
                                dilation=dilation, groups=groups, bias=bias)
         self.stride, self.dilation, self.padding, self.kernel_size = stride, dilation, padding, kernel_size
 
@@ -156,7 +159,7 @@ class Conv3D(nn.Module):
         return self.layer(pad_func(x))
 
             
-class ConvBlock3D(nn.Module):
+class ConvBlock(nn.Module):
     """
     ConvBlock3D is the main building block of a convolutional neural network, it is parametrized to cover
     most use cases for conv nets like resblocks and batch norm.
@@ -224,20 +227,20 @@ class ConvBlock3D(nn.Module):
 
     def __init__(self, num_convs, in_channels, out_channels, 
                  kernel_size=3, stride=1, dilation=1, groups_in=1, groups_out=1, depth_initialization=0, 
-                 bias=True, residual=True, batch_norm=True,
+                 bias=True, residual=True, batch_norm=True, conv_mode='3d',
                  padding='same', activation=nn.LeakyReLU(inplace=True)):
-        super(ConvBlock3D, self).__init__()
+        super(ConvBlock, self).__init__()
         
         # activation   
         self.act = activation
         
         # convolutions
         # conv input_channels -> output_channels
-        self.initial_conv = Conv3D(in_channels, out_channels, kernel_size, stride=stride, padding=padding, 
-                                   dilation=dilation, groups=groups_in, bias=bias)
+        self.initial_conv = Conv(in_channels, out_channels, kernel_size, stride=stride, padding=padding, 
+                                   dilation=dilation, groups=groups_in, bias=bias, mode=conv_mode)
         # instantiate module
-        self.convs = nn.ModuleList([Conv3D(out_channels, out_channels, kernel_size, stride=stride, padding=padding, 
-                                           dilation=dilation, groups=groups_out, bias=bias)] * (num_convs - 1))
+        self.convs = nn.ModuleList([Conv(out_channels, out_channels, kernel_size, stride=stride, padding=padding, 
+                                           dilation=dilation, groups=groups_out, bias=bias, mode=conv_mode)] * (num_convs - 1))
         
         # depth fixup initialization arXiv:1901.09321v2
         if depth_initialization>0:
